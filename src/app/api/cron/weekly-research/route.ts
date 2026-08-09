@@ -5,7 +5,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentWeekStartJST, jstNow } from "@/lib/date/schedule";
 import { runWeeklyResearch } from "@/lib/research/pipeline";
 
-export const maxDuration = 60;
+// The cron route runs ALL active categories via Promise.allSettled (concurrent,
+// not sequential), so wall time tracks the single slowest category rather than
+// their sum — but give it real headroom since individual runs measured 30-65s+.
+export const maxDuration = 180;
 
 interface ResearchSchedule {
   cron: string; // standard 5-field cron expression, interpreted in `timezone`

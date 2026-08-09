@@ -5,8 +5,15 @@ import type { RawMetricItem } from "../schemas";
 import { analysisResultSchema, type AnalysisResult } from "../schemas";
 import { getAnthropicClient, getAnalysisModel, submitAnalysisTool } from "../anthropic-client";
 
+// Deliberately pinned to the older, simpler web_search tool rather than the
+// newer web_search_20260318: the newer version routes searches through a
+// code_execution sandbox ("dynamic filtering") where the model writes ad-hoc
+// Python to call web_search and parse results. In testing that added 60-100s+
+// of unpredictable latency (sometimes looping on debugging code that never
+// converges) versus a consistent ~30s with this version — well inside Vercel's
+// function timeout, which matters since this runs from a request handler.
 const WEB_SEARCH_TOOL = {
-  type: "web_search_20260318" as const,
+  type: "web_search_20250305" as const,
   name: "web_search" as const,
   max_uses: 6,
 };

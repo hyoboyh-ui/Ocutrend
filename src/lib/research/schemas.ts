@@ -8,8 +8,11 @@ export const pickupItemSchema = z.object({
   url: z.string().url().nullable(),
   whyTrending: z.string().min(1),
   howToReplicate: z.string().min(1),
-  viewCount: z.number().int().nonnegative().optional(),
-  publishedAt: z.string().optional(),
+  // Claude's tool schema (anthropic-client.ts) declares these as `["number"|"string", "null"]`,
+  // i.e. explicit `null` is a valid value it will actually send — not just "field omitted".
+  // zod's `.optional()` alone only tolerates `undefined`, so these must be `.nullable()` too.
+  viewCount: z.number().int().nonnegative().nullable().optional(),
+  publishedAt: z.string().nullable().optional(),
 });
 export type PickupItem = z.infer<typeof pickupItemSchema>;
 
