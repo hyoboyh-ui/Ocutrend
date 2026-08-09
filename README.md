@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ocutrend
 
-## Getting Started
+YouTube / bilibili の週刊トレンドをリサーチし、「なぜ伸びているか」「作り方」まで分析して提案する個人用PWA。
 
-First, run the development server:
+## セットアップ(初回のみ)
+
+### 1. 必要なアカウント・APIキー
+
+| サービス | 用途 | 取得先 |
+|---|---|---|
+| Supabase | DB(Postgres) | https://supabase.com でプロジェクト作成 |
+| Anthropic | 分析・Web検索 | https://console.anthropic.com でAPIキー発行 |
+| YouTube Data API v3 | トレンド動画取得 | https://console.cloud.google.com で有効化+APIキー発行 |
+| Vercel | ホスティング・Cron | https://vercel.com でGitHubリポジトリをImport |
+
+### 2. DBスキーマの適用
+
+Supabaseプロジェクト作成後、SQL Editorで以下を順に実行:
+
+1. `supabase/migrations/0001_init.sql`
+2. `supabase/migrations/seed.sql`
+
+### 3. 環境変数
+
+`.env.local`(ローカル開発用、git管理外)を編集し、`NEXT_PUBLIC_SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `ANTHROPIC_API_KEY` / `YOUTUBE_API_KEY` / `APP_PASSWORD` を埋める。`SESSION_SECRET` / `CRON_SECRET` / VAPIDキーは生成済みのものがすでに入っている。
+
+Vercelにデプロイする場合は、Vercelプロジェクトの Environment Variables に同じ内容を設定する(`CRON_SECRET` は Vercel Cron が自動的に `Authorization: Bearer <値>` ヘッダーとして送るための値としても使われる)。
+
+### 4. ローカル動作確認
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`http://localhost:3000` にアクセスし、`APP_PASSWORD` でログインできることを確認する。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 運用
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- 週次リサーチは Vercel Cron が毎日 22:00 UTC(=JST朝7時前後)に `/api/cron/weekly-research` を叩き、`app_settings.research_schedule` の設定に基づいて実際に実行するかを判定する(既定: 毎週月曜)。
+- 各カテゴリは「カテゴリ管理」画面から個別に「今すぐリサーチ」で即時実行できる。
+- バグ修正や機能追加は、このリポジトリで作業しているClaude Codeセッションに「pushして欲しい」と伝えるだけで、ビルドチェック→`main`へのpush→Vercel自動デプロイまで完了する。
 
-## Learn More
+## 開発コマンド
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run dev      # 開発サーバー
+npm run build    # 本番ビルド(型チェック含む)
+npm run lint     # ESLint
+npm run test     # vitest (パイプラインの純粋関数のユニットテスト)
+npm run generate-icons  # public/icons/logo-source.svg からPWAアイコン一式を再生成
+```
