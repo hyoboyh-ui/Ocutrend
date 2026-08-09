@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { CategoryRow } from "@/lib/supabase/types";
 import type { RawMetricItem } from "../schemas";
 import { getEnv } from "@/lib/env";
+import { MAX_AGE_DAYS } from "../ranking";
 import { YouTubeApiError } from "./types";
 
 const searchResponseSchema = z.object({
@@ -23,10 +24,16 @@ const videosResponseSchema = z.object({
   ),
 });
 
-/** Fetches the past week's most-viewed videos for a category via search.list + videos.list. */
+/**
+ * Fetches recent high-view videos for a category via search.list + videos.list.
+ *
+ * `order=viewCount` is only a coarse server-side pre-filter to get a decent pool —
+ * the actual ordering is redone locally by view/comment velocity (see ranking.ts),
+ * so that a 2-day-old climber outranks a 9-day-old video with a bigger total.
+ */
 export async function fetchYouTubeTrending(category: CategoryRow): Promise<RawMetricItem[]> {
   const apiKey = getEnv().YOUTUBE_API_KEY;
-  const publishedAfter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const publishedAfter = new Date(Date.now() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const query = category.search_query_hint || category.name;
 
   const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
@@ -34,7 +41,7 @@ export async function fetchYouTubeTrending(category: CategoryRow): Promise<RawMe
   searchUrl.searchParams.set("part", "snippet");
   searchUrl.searchParams.set("type", "video");
   searchUrl.searchParams.set("order", "viewCount");
-  searchUrl.searchParams.set("maxResults", "15");
+  searchUrl.searchParams.set("maxResults", "25");
   searchUrl.searchParams.set("publishedAfter", publishedAfter);
   searchUrl.searchParams.set("q", query);
 

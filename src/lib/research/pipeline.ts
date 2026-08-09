@@ -1,6 +1,7 @@
 import "server-only";
 import type { CategoryRow, SourceUsed, TriggeredBy } from "@/lib/supabase/types";
-import type { AnalysisResult, RawMetricItem } from "./schemas";
+import type { AnalysisResult } from "./schemas";
+import { rankByVelocity, type RankedItem } from "./ranking";
 import { fetchYouTubeTrending } from "./sources/youtube";
 import { fetchBilibiliRanking } from "./sources/bilibili";
 import { fetchBilibiliViaWebSearch, fetchAndAnalyzeViaWebSearch } from "./sources/claude-web-search";
@@ -20,10 +21,13 @@ import {
 import { sendReportReadyPush, sendCategoryErrorPush } from "@/lib/notifications/webpush";
 
 interface FetchResult {
-  items: RawMetricItem[];
+  items: RankedItem[];
   sourceUsed: SourceUsed;
   fallbackReason: string | null;
 }
+
+/** How many videos per platform survive into the list Claude analyses. */
+const ITEMS_PER_PLATFORM = 12;
 
 async function fetchRawDataForMainCategory(category: CategoryRow): Promise<FetchResult> {
   const [ytResult, biliResult] = await Promise.allSettled([
@@ -40,7 +44,7 @@ async function fetchRawDataForMainCategory(category: CategoryRow): Promise<Fetch
     const fallbackItems = await fetchBilibiliViaWebSearch(category);
     const ytItems = ytResult.status === "fulfilled" ? ytResult.value : [];
     return {
-      items: [...ytItems, ...fallbackItems],
+      items: rankByVelocity([...ytItems, ...fallbackItems], { limitPerPlatform: ITEMS_PER_PLATFORM }),
       sourceUsed: "claude_web_search",
       fallbackReason: "bilibili_endpoint_failed",
     };
@@ -53,14 +57,18 @@ async function fetchRawDataForMainCategory(category: CategoryRow): Promise<Fetch
       message: ytResult.reason instanceof Error ? ytResult.reason.message : String(ytResult.reason),
     });
     return {
-      items: biliResult.value,
+      items: rankByVelocity(biliResult.value, { limitPerPlatform: ITEMS_PER_PLATFORM }),
       sourceUsed: "bilibili",
       fallbackReason: "youtube_api_failed",
     };
   }
 
   return {
-    items: [...ytResult.value, ...biliResult.value],
+    // Ranked across both platforms at once so the list handed to Claude is ordered by
+    // how fast each video is climbing, not by which API happened to return it.
+    items: rankByVelocity([...ytResult.value, ...biliResult.value], {
+      limitPerPlatform: ITEMS_PER_PLATFORM,
+    }),
     sourceUsed: "youtube", // mixed source; source_used records the primary happy-path source
     fallbackReason: null,
   };
@@ -73,7 +81,7 @@ export async function runOneCategory(weeklyRunId: string, category: CategoryRow)
     let analysis: AnalysisResult;
     let sourceUsed: SourceUsed;
     let fallbackReason: string | null;
-    let rawItems: RawMetricItem[];
+    let rawItems: RankedItem[];
 
     if (category.source_type === "web_search_only") {
       analysis = await fetchAndAnalyzeViaWebSearch(category);

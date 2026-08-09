@@ -9,7 +9,8 @@ import type {
   TriggeredBy,
   WeeklyRunRow,
 } from "@/lib/supabase/types";
-import type { AnalysisResult, RawMetricItem } from "./schemas";
+import type { AnalysisResult } from "./schemas";
+import type { RankedItem } from "./ranking";
 
 export async function upsertWeeklyRun(triggeredBy: TriggeredBy): Promise<WeeklyRunRow> {
   const supabase = createServerSupabaseClient();
@@ -71,7 +72,7 @@ export async function persistReportEntry(
   analysis: AnalysisResult,
   sourceUsed: SourceUsed,
   fallbackReason: string | null,
-  rawItems: RawMetricItem[]
+  rawItems: RankedItem[]
 ): Promise<void> {
   const supabase = createServerSupabaseClient();
 
@@ -85,6 +86,9 @@ export async function persistReportEntry(
     like_count: item.likeCount ?? null,
     comment_count: item.commentCount ?? null,
     published_at: item.publishedAt ?? null,
+    // Views per hour since publish — the value the ranking sorted on. Stored so the
+    // v2 trend graphs can plot climb rate without recomputing it from raw counts.
+    growth_rate: item.viewVelocity ?? null,
     keywords: [],
     rank_in_pickups: idx < pickupsWithRef.length ? idx + 1 : null,
   }));

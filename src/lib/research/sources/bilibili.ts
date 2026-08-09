@@ -80,7 +80,10 @@ export async function fetchBilibiliRanking(category: CategoryRow): Promise<RawMe
     );
   }
 
-  return parsed.data.data.list.slice(0, 15).map((v) => ({
+  // Return the whole ranking rather than a head slice — the recency filter and
+  // velocity ranking downstream need a real pool to choose from, and bilibili's own
+  // ordering is by cumulative score, which favours older videos in the window.
+  return parsed.data.data.list.map((v) => ({
     platform: "bilibili" as const,
     title: v.title,
     url: `https://www.bilibili.com/video/${v.bvid}`,

@@ -2,19 +2,22 @@
 -- bilibili_partition uses bilibili's tid (分区) values where a stable partition exists;
 -- null means "no single partition fits" -> code falls back to the cross-partition
 -- x/web-interface/popular endpoint instead of ranking/v2.
+-- Use the 1000-range ids: the legacy ones (3=音乐, 4=游戏, 119=鬼畜) are retired and
+-- ranking/v2 still answers code 0 for them while serving data frozen in March 2025.
+-- See migration 0003 for how the replacements were verified.
 insert into categories (slug, name, group_type, description, search_query_hint, source_type, bilibili_partition, sort_order) values
 ('song-covers', '歌(中国語カバー曲)', 'main',
   'bilibiliで人気の中国語カバー曲・歌ってみた動画。なぜ伸びているか、選曲・アレンジ・サムネの傾向を分析する。',
-  '中国語 カバー 歌ってみた OR 翻唱', 'youtube_bilibili', 3, 10),
+  '中国語 カバー 歌ってみた OR 翻唱', 'youtube_bilibili', 1003, 10),
 ('meme', 'ネタ・meme系', 'main',
   'ネタ動画・ミーム・鬼畜系コンテンツのトレンド。編集手法や小ネタの構造を分析する。',
-  'ネタ動画 ミーム 面白い 鬼畜', 'youtube_bilibili', 119, 20),
+  'ネタ動画 ミーム 面白い 鬼畜', 'youtube_bilibili', 1007, 20),
 ('shorts', 'ショート動画系', 'main',
   'YouTube Shortsやbilibiliのショートフォームコンテンツのトレンド。フォーマット・構成・フックの作り方を分析する。',
   'ショート動画 shorts バズ', 'youtube_bilibili', null, 30),
 ('gaming', 'ゲーム(新作・実況)', 'main',
   '新作ゲームや伸びているゲーム実況のトレンド。実況の見せ方・編集の工夫を分析する。',
-  '新作ゲーム 実況 プレイ動画', 'youtube_bilibili', 4, 40),
+  '新作ゲーム 実況 プレイ動画', 'youtube_bilibili', 1008, 40),
 ('freeform', 'その他自由入力', 'main',
   '上記に当てはまらない、今週なんとなく話題になっているジャンル全般を幅広く拾う。',
   '今週 話題 バズ 動画', 'youtube_bilibili', null, 50),
