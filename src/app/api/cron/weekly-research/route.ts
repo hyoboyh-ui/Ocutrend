@@ -1,0 +1,58 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getEnv } from "@/lib/env";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getCurrentWeekStartJST, jstNow } from "@/lib/date/schedule";
+import { runWeeklyResearch } from "@/lib/research/pipeline";
+
+export const maxDuration = 60;
+
+interface ResearchSchedule {
+  cron: string; // standard 5-field cron expression, interpreted in `timezone`
+  timezone: string;
+}
+
+// Very small cron-field matcher: supports "*", a single number, or "star-slash-N" step syntax — enough for day-of-week gating.
+function matchesCronField(field: string, value: number): boolean {
+  if (field === "*") return true;
+  if (field.startsWith("*/")) return value % Number(field.slice(2)) === 0;
+  return Number(field) === value;
+}
+
+function isScheduledNow(schedule: ResearchSchedule, now: Date): boolean {
+  const [, , , , dow] = schedule.cron.split(" ");
+  return matchesCronField(dow, now.getDay());
+}
+
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${getEnv().CRON_SECRET}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const supabase = createServerSupabaseClient();
+  const { data: settingRow } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "research_schedule")
+    .maybeSingle();
+  const schedule = (settingRow?.value as ResearchSchedule) ?? { cron: "0 22 * * 0", timezone: "Asia/Tokyo" };
+
+  const now = jstNow();
+  if (!isScheduledNow(schedule, now)) {
+    return NextResponse.json({ skipped: true, reason: "not scheduled today" });
+  }
+
+  const weekStart = getCurrentWeekStartJST();
+  const { data: existingRun } = await supabase
+    .from("weekly_runs")
+    .select("status")
+    .eq("week_start", weekStart)
+    .maybeSingle();
+  if (existingRun && (existingRun.status === "completed" || existingRun.status === "completed_with_errors")) {
+    return NextResponse.json({ skipped: true, reason: "already completed this week" });
+  }
+
+  const runId = await runWeeklyResearch("cron");
+  return NextResponse.json({ ok: true, runId });
+}

@@ -1,26 +1,98 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light mode (default) */
+  --accent: #639922; /* kb-green-deep — better contrast on light bg */
+  --accent-strong: #4d7a1a;
+  --accent-soft: #97c459; /* kb-green-accent — chart highlights/badges */
+  --bg-page: #f7f8f6;
+  --bg-surface: #ffffff;
+  --bg-surface-raised: #ffffff;
+  --border: #e2e5de;
+  --text-primary: #1a1d18;
+  --text-muted: #666b60;
+  --danger: #c6484b;
+  --warning: #c68a2e;
+  --platform-youtube: #e03c3c;
+  --platform-bilibili: #4a9fe0;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+[data-theme="dark"] {
+  --accent: #97c459; /* kb-green-accent */
+  --accent-strong: #afd97b;
+  --accent-soft: #639922;
+  --bg-page: #14161a;
+  --bg-surface: #1c1f24;
+  --bg-surface-raised: #23262c;
+  --border: #2e323a;
+  --text-primary: #edefea;
+  --text-muted: #9aa097;
+  --danger: #e5787a;
+  --warning: #e0a94e;
+  --platform-youtube: #ff6b6b;
+  --platform-bilibili: #6fb6f0;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    --accent: #97c459;
+    --accent-strong: #afd97b;
+    --accent-soft: #639922;
+    --bg-page: #14161a;
+    --bg-surface: #1c1f24;
+    --bg-surface-raised: #23262c;
+    --border: #2e323a;
+    --text-primary: #edefea;
+    --text-muted: #9aa097;
+    --danger: #e5787a;
+    --warning: #e0a94e;
+    --platform-youtube: #ff6b6b;
+    --platform-bilibili: #6fb6f0;
   }
 }
 
+@theme inline {
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-bg-page: var(--bg-page);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-surface-raised: var(--bg-surface-raised);
+  --color-border: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-platform-youtube: var(--platform-youtube);
+  --color-platform-bilibili: var(--platform-bilibili);
+  --font-sans: var(--font-noto-sans-jp);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Card stagger-fade-in, used by dashboard/archive cards. Respects reduced motion. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-enter {
+  animation: card-in 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-enter {
+    animation: none;
+  }
 }

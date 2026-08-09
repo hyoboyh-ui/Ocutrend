@@ -1,0 +1,124 @@
+import "server-only";
+import type { CategoryRow, SourceUsed, TriggeredBy } from "@/lib/supabase/types";
+import type { AnalysisResult, RawMetricItem } from "./schemas";
+import { fetchYouTubeTrending } from "./sources/youtube";
+import { fetchBilibiliRanking } from "./sources/bilibili";
+import { fetchBilibiliViaWebSearch, fetchAndAnalyzeViaWebSearch } from "./sources/claude-web-search";
+import { BilibiliEndpointError, YouTubeApiError } from "./sources/types";
+import { analyzeWithClaude } from "./analysis";
+import {
+  upsertWeeklyRun,
+  getActiveCategories,
+  upsertReportEntryRunning,
+  persistReportEntry,
+  markReportEntryError,
+  logError,
+  finalizeWeeklyRun,
+  resetCategoryFailureStreak,
+  recordCategoryFailureAndShouldNotify,
+} from "./persist";
+import { sendReportReadyPush, sendCategoryErrorPush } from "@/lib/notifications/webpush";
+
+interface FetchResult {
+  items: RawMetricItem[];
+  sourceUsed: SourceUsed;
+  fallbackReason: string | null;
+}
+
+async function fetchRawDataForMainCategory(category: CategoryRow): Promise<FetchResult> {
+  const [ytResult, biliResult] = await Promise.allSettled([
+    fetchYouTubeTrending(category),
+    fetchBilibiliRanking(category),
+  ]);
+
+  if (biliResult.status === "rejected") {
+    await logError({
+      categoryId: category.id,
+      source: "bilibili",
+      message: biliResult.reason instanceof Error ? biliResult.reason.message : String(biliResult.reason),
+    });
+    const fallbackItems = await fetchBilibiliViaWebSearch(category);
+    const ytItems = ytResult.status === "fulfilled" ? ytResult.value : [];
+    return {
+      items: [...ytItems, ...fallbackItems],
+      sourceUsed: "claude_web_search",
+      fallbackReason: "bilibili_endpoint_failed",
+    };
+  }
+
+  if (ytResult.status === "rejected") {
+    await logError({
+      categoryId: category.id,
+      source: "youtube",
+      message: ytResult.reason instanceof Error ? ytResult.reason.message : String(ytResult.reason),
+    });
+    return {
+      items: biliResult.value,
+      sourceUsed: "bilibili",
+      fallbackReason: "youtube_api_failed",
+    };
+  }
+
+  return {
+    items: [...ytResult.value, ...biliResult.value],
+    sourceUsed: "youtube", // mixed source; source_used records the primary happy-path source
+    fallbackReason: null,
+  };
+}
+
+export async function runOneCategory(weeklyRunId: string, category: CategoryRow): Promise<void> {
+  const entry = await upsertReportEntryRunning(weeklyRunId, category.id);
+
+  try {
+    let analysis: AnalysisResult;
+    let sourceUsed: SourceUsed;
+    let fallbackReason: string | null;
+    let rawItems: RawMetricItem[];
+
+    if (category.source_type === "web_search_only") {
+      analysis = await fetchAndAnalyzeViaWebSearch(category);
+      sourceUsed = "claude_web_search";
+      fallbackReason = null;
+      rawItems = [];
+    } else {
+      const raw = await fetchRawDataForMainCategory(category);
+      analysis = await analyzeWithClaude(category, raw.items);
+      sourceUsed = raw.sourceUsed;
+      fallbackReason = raw.fallbackReason;
+      rawItems = raw.items;
+    }
+
+    await persistReportEntry(entry.id, analysis, sourceUsed, fallbackReason, rawItems);
+    await resetCategoryFailureStreak(category.id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await markReportEntryError(entry.id, message);
+    await logError({
+      categoryId: category.id,
+      weeklyRunId,
+      source: classifyErrorSource(err),
+      message,
+    });
+    const shouldNotify = await recordCategoryFailureAndShouldNotify(category.id, category);
+    if (shouldNotify) {
+      await sendCategoryErrorPush(category, message);
+    }
+  }
+}
+
+function classifyErrorSource(err: unknown): string {
+  if (err instanceof BilibiliEndpointError) return "bilibili";
+  if (err instanceof YouTubeApiError) return "youtube";
+  return "claude";
+}
+
+export async function runWeeklyResearch(triggeredBy: TriggeredBy): Promise<string> {
+  const run = await upsertWeeklyRun(triggeredBy);
+  const categories = await getActiveCategories();
+
+  await Promise.allSettled(categories.map((cat) => runOneCategory(run.id, cat)));
+
+  await finalizeWeeklyRun(run.id);
+  await sendReportReadyPush(run.id);
+  return run.id;
+}
