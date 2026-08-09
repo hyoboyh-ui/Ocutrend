@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, Download, RefreshCw } from "lucide-react";
 import type { ReportEntryWithCategory } from "@/lib/research/queries";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -17,13 +18,17 @@ export function CategoryCard({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [researching, setResearching] = useState(false);
+  const router = useRouter();
   const category = entry.categories;
 
   async function researchNow() {
     setResearching(true);
     try {
       await fetch(`/api/categories/${category.id}/research-now`, { method: "POST" });
-      window.location.reload();
+      // `router.refresh()` re-fetches just this route's server data and keeps the
+      // expanded/scroll state. A full `location.reload()` re-downloaded the app
+      // shell, fonts and JS, and re-ran the auth proxy for no benefit.
+      router.refresh();
     } finally {
       setResearching(false);
     }

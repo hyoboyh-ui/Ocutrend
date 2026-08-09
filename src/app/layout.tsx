@@ -30,7 +30,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14161A",
+  // Required for `env(safe-area-inset-*)` to report real values on iPhone — without
+  // it the insets are always 0 and the bottom tab bar sits under the home indicator.
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F7F8F6" },
+    { media: "(prefers-color-scheme: dark)", color: "#14161A" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

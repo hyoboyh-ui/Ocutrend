@@ -1,10 +1,6 @@
 import { notFound } from "next/navigation";
 import { Download } from "lucide-react";
-import {
-  getWeeklyRunById,
-  getReportEntriesForRun,
-  getFavoritedRefsForEntries,
-} from "@/lib/research/queries";
+import { getWeeklyRunById, getEntriesWithFavoritesForRun } from "@/lib/research/queries";
 import { CategoryCard } from "@/components/dashboard/CategoryCard";
 import type { GroupType } from "@/lib/supabase/types";
 
@@ -25,8 +21,7 @@ export default async function ArchiveDetailPage({
   const run = await getWeeklyRunById(runId);
   if (!run) notFound();
 
-  const entries = await getReportEntriesForRun(runId);
-  const favoritedRefs = await getFavoritedRefsForEntries(entries.map((e) => e.id));
+  const { entries, favoritedRefs } = await getEntriesWithFavoritesForRun(runId);
 
   const groups: GroupType[] = ["main", "sub", "custom"];
   const entriesByGroup = groups

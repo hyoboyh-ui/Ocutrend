@@ -11,7 +11,11 @@ import { runWeeklyResearch } from "@/lib/research/pipeline";
 export const maxDuration = 180;
 
 interface ResearchSchedule {
-  cron: string; // standard 5-field cron expression, interpreted in `timezone`
+  // Standard 5-field cron expression interpreted in `timezone` (JST), NOT in UTC like
+  // vercel.json's own schedule. Only the day-of-week field is enforced here — the
+  // time-of-day is whatever vercel.json fires at, so keep the two in sync manually:
+  // vercel.json "0 22 * * *" (22:00 UTC daily) lands on 07:00 JST the NEXT day, i.e. dow=1 on Monday.
+  cron: string;
   timezone: string;
 }
 
@@ -39,7 +43,7 @@ export async function GET(request: NextRequest) {
     .select("value")
     .eq("key", "research_schedule")
     .maybeSingle();
-  const schedule = (settingRow?.value as ResearchSchedule) ?? { cron: "0 22 * * 0", timezone: "Asia/Tokyo" };
+  const schedule = (settingRow?.value as ResearchSchedule) ?? { cron: "0 7 * * 1", timezone: "Asia/Tokyo" };
 
   const now = jstNow();
   if (!isScheduledNow(schedule, now)) {

@@ -1,4 +1,4 @@
-import { getLatestWeeklyRun, getReportEntriesForRun, getFavoritedRefsForEntries } from "@/lib/research/queries";
+import { getLatestWeeklyRun, getEntriesWithFavoritesForRun } from "@/lib/research/queries";
 import { pickHeroItems } from "@/lib/research/hero";
 import { HeroSection } from "@/components/dashboard/HeroSection";
 import { CategoryCard } from "@/components/dashboard/CategoryCard";
@@ -25,8 +25,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const entries = await getReportEntriesForRun(run.id);
-  const favoritedRefs = await getFavoritedRefsForEntries(entries.map((e) => e.id));
+  const { entries, favoritedRefs } = await getEntriesWithFavoritesForRun(run.id);
   const heroItems = pickHeroItems(entries);
 
   const groups: GroupType[] = ["main", "sub", "custom"];

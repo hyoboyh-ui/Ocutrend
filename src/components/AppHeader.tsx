@@ -2,16 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { TrendingUp, Archive, ListTodo, Star, AlertTriangle, LogOut } from "lucide-react";
+import { TrendingUp, LogOut } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
-
-const navItems = [
-  { href: "/", label: "ダッシュボード", icon: TrendingUp },
-  { href: "/archive", label: "アーカイブ", icon: Archive },
-  { href: "/categories", label: "カテゴリ", icon: ListTodo },
-  { href: "/favorites", label: "お気に入り", icon: Star },
-  { href: "/errors", label: "エラーログ", icon: AlertTriangle },
-];
+import { navItems, isNavItemActive } from "./nav-items";
 
 export function AppHeader() {
   const pathname = usePathname();
@@ -24,7 +17,10 @@ export function AppHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-border bg-bg-page/90 backdrop-blur">
+    // `pt-[env(safe-area-inset-top)]`: the manifest uses a translucent status bar, so
+    // in standalone mode the page paints *behind* the clock. Without this the header
+    // row sat under it — a large part of why the tabs felt squeezed on iPhone.
+    <header className="sticky top-0 z-10 border-b border-border bg-bg-page/90 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3">
         <Link href="/" className="flex items-center gap-2 font-bold">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15 text-accent">
@@ -32,20 +28,27 @@ export function AppHeader() {
           </div>
           Ocutrend
         </Link>
-        <nav className="flex flex-1 items-center gap-1 overflow-x-auto text-sm">
-          {navItems.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 transition-colors ${
-                pathname === href ? "bg-accent/15 text-accent" : "text-text-muted hover:text-text-primary"
-              }`}
-            >
-              <Icon size={14} />
-              {label}
-            </Link>
-          ))}
+
+        {/* Phones get the icon-only <BottomNav /> instead. */}
+        <nav className="hidden flex-1 items-center gap-1 text-sm sm:flex">
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const active = isNavItemActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={`flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 transition-colors ${
+                  active ? "bg-accent/15 text-accent" : "text-text-muted hover:text-text-primary"
+                }`}
+              >
+                <Icon size={14} />
+                {label}
+              </Link>
+            );
+          })}
         </nav>
+
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <button

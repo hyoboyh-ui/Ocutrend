@@ -27,5 +27,5 @@ insert into categories (slug, name, group_type, description, search_query_hint, 
 on conflict (slug) do nothing;
 
 insert into app_settings (key, value) values
-('research_schedule', '{"cron": "0 22 * * 0", "timezone": "Asia/Tokyo", "note": "毎週月曜 07:00 JST を既定とする"}')
+('research_schedule', '{"cron": "0 7 * * 1", "timezone": "Asia/Tokyo", "note": "毎週月曜 07:00 JST を既定とする。cron式はJST基準で解釈され、実際に判定されるのは曜日フィールドのみ(時刻はvercel.jsonの発火時刻が決める)"}')
 on conflict (key) do nothing;
