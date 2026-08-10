@@ -23,6 +23,40 @@ export const analysisResultSchema = z.object({
 });
 export type AnalysisResult = z.infer<typeof analysisResultSchema>;
 
+/**
+ * Claude intermittently hands back `pickups` as a JSON-encoded *string* instead of a
+ * real array — observed on both the web-search path (AIアニメ) and the plain analysis
+ * path (ショート動画系), so it is a quirk of this tool schema rather than of one
+ * caller. The whole input arriving as a string has the same shape of fix.
+ * Anything still malformed is left alone so zod reports the real problem.
+ */
+function coerceAnalysisInput(raw: unknown): unknown {
+  let value = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return raw;
+    }
+  }
+  if (value === null || typeof value !== "object") return value;
+
+  const obj = { ...(value as Record<string, unknown>) };
+  if (typeof obj.pickups === "string") {
+    try {
+      obj.pickups = JSON.parse(obj.pickups);
+    } catch {
+      // leave as-is; zod will surface it
+    }
+  }
+  return obj;
+}
+
+/** Validates Claude's `submit_analysis` tool input, tolerating the string-encoded variants above. */
+export function parseAnalysisResult(raw: unknown): AnalysisResult {
+  return analysisResultSchema.parse(coerceAnalysisInput(raw));
+}
+
 export const rawMetricItemSchema = z.object({
   platform: z.enum(["youtube", "bilibili", "other"]),
   title: z.string(),

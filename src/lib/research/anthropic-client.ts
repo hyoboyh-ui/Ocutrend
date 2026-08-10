@@ -15,6 +15,11 @@ export function getAnalysisModel(): string {
   return getEnv().ANTHROPIC_MODEL;
 }
 
+/** Model for the web-search paths only — see the note on ANTHROPIC_WEB_SEARCH_MODEL in env.ts. */
+export function getWebSearchModel(): string {
+  return getEnv().ANTHROPIC_WEB_SEARCH_MODEL;
+}
+
 /** Anthropic tool JSON Schema for the structured {summary, pickups[]} analysis output. */
 export const submitAnalysisTool = {
   name: "submit_analysis",

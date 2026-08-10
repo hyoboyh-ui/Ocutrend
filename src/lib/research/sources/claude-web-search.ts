@@ -1,9 +1,8 @@
 import "server-only";
-import { z } from "zod";
 import type { CategoryRow } from "@/lib/supabase/types";
-import type { RawMetricItem } from "../schemas";
-import { analysisResultSchema, type AnalysisResult } from "../schemas";
-import { getAnthropicClient, getAnalysisModel, submitAnalysisTool } from "../anthropic-client";
+import { parseAnalysisResult, type AnalysisResult } from "../schemas";
+import { getAnthropicClient, getWebSearchModel, submitAnalysisTool } from "../anthropic-client";
+import { assertNotTruncated } from "../analysis";
 
 // Deliberately pinned to the older, simpler web_search tool rather than the
 // newer web_search_20260318: the newer version routes searches through a
@@ -12,46 +11,17 @@ import { getAnthropicClient, getAnalysisModel, submitAnalysisTool } from "../ant
 // of unpredictable latency (sometimes looping on debugging code that never
 // converges) versus a consistent ~30s with this version — well inside Vercel's
 // function timeout, which matters since this runs from a request handler.
+//
+// `max_uses` is the single biggest cost lever in this app. Search results are billed as
+// input tokens and accumulate across the server-side loop: with N searches, the first
+// result set is re-charged on every later inference, so input tokens grow roughly with
+// N². Going 6 -> 3 cuts this category's token cost to well under half, plus $0.03/run
+// in per-search fees ($10 per 1,000 searches). Raise it only if reports get too thin.
 const WEB_SEARCH_TOOL = {
   type: "web_search_20250305" as const,
   name: "web_search" as const,
-  max_uses: 6,
+  max_uses: 3,
 };
-
-const submitRawItemsTool = {
-  name: "submit_raw_items",
-  description: "Web検索で見つけた候補動画のリストを提出する。",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      items: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            title: { type: "string" },
-            url: { type: ["string", "null"] },
-            viewCount: { type: ["number", "null"] },
-            publishedAt: { type: ["string", "null"] },
-          },
-          required: ["title"],
-        },
-      },
-    },
-    required: ["items"],
-  },
-};
-
-const rawItemsSchema = z.object({
-  items: z.array(
-    z.object({
-      title: z.string(),
-      url: z.string().nullable().optional(),
-      viewCount: z.number().nullable().optional(),
-      publishedAt: z.string().nullable().optional(),
-    })
-  ),
-});
 
 function findToolUse(
   message: { content: Array<{ type: string; name?: string; input?: unknown }> },
@@ -60,46 +30,16 @@ function findToolUse(
   return message.content.find((b) => b.type === "tool_use" && b.name === name)?.input;
 }
 
-/** Fallback path when the bilibili unofficial endpoint fails: ask Claude to search for this week's top bilibili videos for the category instead. */
-export async function fetchBilibiliViaWebSearch(category: CategoryRow): Promise<RawMetricItem[]> {
-  const client = getAnthropicClient();
-
-  const message = await client.messages.create({
-    model: getAnalysisModel(),
-    max_tokens: 2048,
-    tools: [WEB_SEARCH_TOOL, submitRawItemsTool],
-    tool_choice: { type: "auto" },
-    messages: [
-      {
-        role: "user",
-        content: `bilibiliの「${category.name}」カテゴリで今週(直近7日間)特に再生数が伸びている動画を5〜10件、Web検索で調べてください。見つけたら必ず最後にsubmit_raw_itemsツールを1回呼び出して結果を提出してください。`,
-      },
-    ],
-  });
-
-  const raw = findToolUse(message, "submit_raw_items");
-  if (!raw) {
-    throw new Error("Claude web search did not return submit_raw_items — bilibili fallback failed");
-  }
-  const parsed = rawItemsSchema.parse(raw);
-  return parsed.items.map((i) => ({
-    platform: "bilibili" as const,
-    title: i.title,
-    url: i.url ?? null,
-    viewCount: i.viewCount ?? null,
-    likeCount: null,
-    commentCount: null,
-    publishedAt: i.publishedAt ?? null,
-  }));
-}
-
 /** Full research+analysis in one call for web_search_only categories (Photoshop/Premiere, AI関連, etc.). */
 export async function fetchAndAnalyzeViaWebSearch(category: CategoryRow): Promise<AnalysisResult> {
   const client = getAnthropicClient();
 
   const message = await client.messages.create({
-    model: getAnalysisModel(),
-    max_tokens: 4096,
+    model: getWebSearchModel(),
+    // Higher than the plain analysis path: web-search results are echoed back into the
+    // context and the model narrates its research before calling the tool, so the tool
+    // call itself starts much closer to the output limit.
+    max_tokens: 12288,
     tools: [WEB_SEARCH_TOOL, submitAnalysisTool],
     tool_choice: { type: "auto" },
     messages: [
@@ -114,9 +54,13 @@ export async function fetchAndAnalyzeViaWebSearch(category: CategoryRow): Promis
     ],
   });
 
+  assertNotTruncated(message.stop_reason, `「${category.name}」のWeb検索リサーチ`);
+
   const input = findToolUse(message, "submit_analysis");
   if (!input) {
-    throw new Error("Claude web search did not return submit_analysis — category analysis failed");
+    throw new Error(
+      `「${category.name}」のWeb検索リサーチ: Claudeがsubmit_analysisを呼び出しませんでした（検索は行われた可能性があります）`
+    );
   }
-  return analysisResultSchema.parse(input);
+  return parseAnalysisResult(input);
 }

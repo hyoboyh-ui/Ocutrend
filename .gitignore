@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but the template carries no secrets and is the setup reference the README points at,
+# so it must be committed. Without this it was silently untracked.
+!.env.example
 
 # vercel
 .vercel

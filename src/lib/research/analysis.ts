@@ -1,7 +1,7 @@
 import "server-only";
 import type { CategoryRow } from "@/lib/supabase/types";
 import type { RankedItem } from "./ranking";
-import { analysisResultSchema, type AnalysisResult } from "./schemas";
+import { parseAnalysisResult, type AnalysisResult } from "./schemas";
 import { getAnthropicClient, getAnalysisModel, submitAnalysisTool } from "./anthropic-client";
 
 function extractToolInput(message: { content: Array<{ type: string; name?: string; input?: unknown }> }) {
@@ -9,6 +9,21 @@ function extractToolInput(message: { content: Array<{ type: string; name?: strin
     (b) => b.type === "tool_use" && b.name === "submit_analysis"
   );
   return block?.input;
+}
+
+/**
+ * Turns a truncated response into a readable error.
+ *
+ * When the model runs out of output tokens mid tool-call, the partially built input
+ * still surfaces as a `tool_use` block — so validation failed with a baffling
+ * "summary: expected string, received undefined" instead of saying it was cut off.
+ */
+export function assertNotTruncated(stopReason: string | null, label: string): void {
+  if (stopReason === "max_tokens") {
+    throw new Error(
+      `${label}: Claudeの応答がmax_tokensで打ち切られ、分析結果が不完全になりました。max_tokensを増やすか、カテゴリの説明を短くしてください。`
+    );
+  }
 }
 
 /** Analyzes already-fetched numeric data (YouTube/bilibili) for a main category. No web search — pure reasoning over the given stats. */
@@ -29,7 +44,9 @@ export async function analyzeWithClaude(
 
   const message = await client.messages.create({
     model: getAnalysisModel(),
-    max_tokens: 4096,
+    // Raised from 4096: analyses were being cut off mid tool-call, which surfaced as
+    // an undefined `summary`/`pickups` rather than an obvious truncation error.
+    max_tokens: 8192,
     tools: [submitAnalysisTool],
     tool_choice: { type: "tool", name: "submit_analysis" },
     messages: [
@@ -51,7 +68,11 @@ ${itemsList}
     ],
   });
 
+  assertNotTruncated(message.stop_reason, `「${category.name}」の分析`);
+
   const input = extractToolInput(message);
-  const parsed = analysisResultSchema.parse(input);
-  return parsed;
+  if (!input) {
+    throw new Error(`「${category.name}」の分析: Claudeがsubmit_analysisを呼び出しませんでした`);
+  }
+  return parseAnalysisResult(input);
 }

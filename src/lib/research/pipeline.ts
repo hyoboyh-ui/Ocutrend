@@ -4,7 +4,7 @@ import type { AnalysisResult } from "./schemas";
 import { rankByVelocity, type RankedItem } from "./ranking";
 import { fetchYouTubeTrending } from "./sources/youtube";
 import { fetchBilibiliRanking } from "./sources/bilibili";
-import { fetchBilibiliViaWebSearch, fetchAndAnalyzeViaWebSearch } from "./sources/claude-web-search";
+import { fetchAndAnalyzeViaWebSearch } from "./sources/claude-web-search";
 import { BilibiliEndpointError, YouTubeApiError } from "./sources/types";
 import { analyzeWithClaude } from "./analysis";
 import {
@@ -41,11 +41,29 @@ async function fetchRawDataForMainCategory(category: CategoryRow): Promise<Fetch
       source: "bilibili",
       message: biliResult.reason instanceof Error ? biliResult.reason.message : String(biliResult.reason),
     });
-    const fallbackItems = await fetchBilibiliViaWebSearch(category);
-    const ytItems = ytResult.status === "fulfilled" ? ytResult.value : [];
+
+    // Deliberately no web-search substitute for bilibili here. A searched-up list
+    // carries no comment counts and unreliable publish dates, so every such item
+    // scores 0 in rankByVelocity and the recency filter cannot drop stale hits —
+    // the report would quietly lose the ranking it is built around while paying
+    // per search for the privilege. Degrading to YouTube-only stays free and
+    // honest; the fallback_used badge and the error log surface the outage so the
+    // endpoint itself gets fixed (as in the dead-partition fix).
+    if (ytResult.status === "rejected") {
+      await logError({
+        categoryId: category.id,
+        source: "youtube",
+        message: ytResult.reason instanceof Error ? ytResult.reason.message : String(ytResult.reason),
+      });
+      // Rethrow bilibili's own error so classifyErrorSource still attributes it correctly.
+      throw biliResult.reason instanceof Error
+        ? biliResult.reason
+        : new Error(String(biliResult.reason));
+    }
+
     return {
-      items: rankByVelocity([...ytItems, ...fallbackItems], { limitPerPlatform: ITEMS_PER_PLATFORM }),
-      sourceUsed: "claude_web_search",
+      items: rankByVelocity(ytResult.value, { limitPerPlatform: ITEMS_PER_PLATFORM }),
+      sourceUsed: "youtube",
       fallbackReason: "bilibili_endpoint_failed",
     };
   }
