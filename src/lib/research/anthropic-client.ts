@@ -20,6 +20,18 @@ export function getWebSearchModel(): string {
   return getEnv().ANTHROPIC_WEB_SEARCH_MODEL;
 }
 
+/**
+ * Records the token accounting of one Claude call.
+ *
+ * Without this the only cost signal is the Anthropic Usage dashboard, which lags and
+ * aggregates every call together — useless for answering "what does one category cost".
+ * The whole `usage` object is logged rather than picked fields so cache and server-tool
+ * counters survive SDK changes.
+ */
+export function logUsage(label: string, model: string, usage: unknown): void {
+  console.log(`[anthropic-usage] ${JSON.stringify({ label, model, usage })}`);
+}
+
 /** Anthropic tool JSON Schema for the structured {summary, pickups[]} analysis output. */
 export const submitAnalysisTool = {
   name: "submit_analysis",

@@ -1,7 +1,7 @@
 import "server-only";
 import type { CategoryRow } from "@/lib/supabase/types";
 import { parseAnalysisResult, type AnalysisResult } from "../schemas";
-import { getAnthropicClient, getWebSearchModel, submitAnalysisTool } from "../anthropic-client";
+import { getAnthropicClient, getWebSearchModel, logUsage, submitAnalysisTool } from "../anthropic-client";
 import { assertNotTruncated } from "../analysis";
 
 // Deliberately pinned to the older, simpler web_search tool rather than the
@@ -54,6 +54,7 @@ export async function fetchAndAnalyzeViaWebSearch(category: CategoryRow): Promis
     ],
   });
 
+  logUsage(`web-search:${category.slug}`, getWebSearchModel(), message.usage);
   assertNotTruncated(message.stop_reason, `「${category.name}」のWeb検索リサーチ`);
 
   const input = findToolUse(message, "submit_analysis");

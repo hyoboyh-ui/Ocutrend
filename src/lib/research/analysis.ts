@@ -2,7 +2,7 @@ import "server-only";
 import type { CategoryRow } from "@/lib/supabase/types";
 import type { RankedItem } from "./ranking";
 import { parseAnalysisResult, type AnalysisResult } from "./schemas";
-import { getAnthropicClient, getAnalysisModel, submitAnalysisTool } from "./anthropic-client";
+import { getAnthropicClient, getAnalysisModel, logUsage, submitAnalysisTool } from "./anthropic-client";
 
 function extractToolInput(message: { content: Array<{ type: string; name?: string; input?: unknown }> }) {
   const block = message.content.find(
@@ -68,6 +68,7 @@ ${itemsList}
     ],
   });
 
+  logUsage(`analysis:${category.slug}`, getAnalysisModel(), message.usage);
   assertNotTruncated(message.stop_reason, `「${category.name}」の分析`);
 
   const input = extractToolInput(message);
