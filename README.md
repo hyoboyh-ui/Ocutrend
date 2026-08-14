@@ -12,13 +12,11 @@ YouTube / bilibili の週刊トレンドをリサーチし、「なぜ伸びて�
 | Anthropic | 分析・Web検索 | https://console.anthropic.com でAPIキー発行 |
 | YouTube Data API v3 | トレンド動画取得 | https://console.cloud.google.com で有効化+APIキー発行 |
 | Vercel | ホスティング・Cron | https://vercel.com でGitHubリポジトリをImport |
+| Voyage AI(任意) | お気に入りベースのembeddingリランキング(段階2) | https://www.voyageai.com でアカウント作成+APIキー発行。未設定でも他機能に影響なし |
 
 ### 2. DBスキーマの適用
 
-Supabaseプロジェクト作成後、SQL Editorで以下を順に実行:
-
-1. `supabase/migrations/0001_init.sql`
-2. `supabase/migrations/seed.sql`
+Supabaseプロジェクト作成後、SQL Editorで`supabase/migrations/`配下のファイルを番号順に実行し、最後に`seed.sql`を実行する。
 
 ### 3. 環境変数
 

@@ -52,6 +52,7 @@ export const submitAnalysisTool = {
           type: "object",
           properties: {
             title: { type: "string", description: "原題(原語のまま、翻訳しない)" },
+            channelTitle: { type: ["string", "null"], description: "チャンネル名/投稿者名(データにあればそのまま転記)" },
             platform: { type: "string", enum: ["youtube", "bilibili", "web"] },
             url: { type: ["string", "null"] },
             whyTrending: { type: "string", description: "なぜ伸びているか(日本語)" },

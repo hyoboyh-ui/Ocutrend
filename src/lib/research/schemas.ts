@@ -4,6 +4,7 @@ import { z } from "zod";
 export const pickupItemSchema = z.object({
   ref: z.string().min(1), // stable id, generated at write time (see analysis.ts) — favorites reference this, not array index
   title: z.string().min(1), // original-language title, left untranslated
+  channelTitle: z.string().nullable().optional(), // carried through so favorites can drive personalization.ts channel boosts
   platform: z.enum(["youtube", "bilibili", "web"]),
   url: z.string().url().nullable(),
   whyTrending: z.string().min(1),
@@ -60,6 +61,7 @@ export function parseAnalysisResult(raw: unknown): AnalysisResult {
 export const rawMetricItemSchema = z.object({
   platform: z.enum(["youtube", "bilibili", "other"]),
   title: z.string(),
+  channelTitle: z.string().nullable().optional(),
   url: z.string().nullable().optional(),
   viewCount: z.number().nullable().optional(),
   likeCount: z.number().nullable().optional(),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getCurrentWeekStartJST } from "./schedule";
+import { getCurrentWeekStartJST, getCurrentMonthStartJST } from "./schedule";
 
 describe("getCurrentWeekStartJST", () => {
   it("returns the Monday of the current JST week", () => {
@@ -17,5 +17,18 @@ describe("getCurrentWeekStartJST", () => {
     // 2026-08-09 23:30 UTC is 2026-08-10 08:30 JST (Monday)
     const lateUtc = new Date("2026-08-09T23:30:00Z");
     expect(getCurrentWeekStartJST(lateUtc)).toBe("2026-08-10");
+  });
+});
+
+describe("getCurrentMonthStartJST", () => {
+  it("returns the 1st of the current JST month", () => {
+    const midMonth = new Date("2026-08-14T10:00:00Z");
+    expect(getCurrentMonthStartJST(midMonth)).toBe("2026-08-01");
+  });
+
+  it("handles a UTC date that has already rolled into the next month in JST", () => {
+    // 2026-07-31 15:30 UTC is 2026-08-01 00:30 JST
+    const rollover = new Date("2026-07-31T15:30:00Z");
+    expect(getCurrentMonthStartJST(rollover)).toBe("2026-08-01");
   });
 });

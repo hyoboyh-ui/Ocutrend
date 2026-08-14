@@ -17,7 +17,12 @@ import {
   finalizeWeeklyRun,
   resetCategoryFailureStreak,
   recordCategoryFailureAndShouldNotify,
+  getFavoriteSignalsForCategory,
 } from "./persist";
+import { extractFavoriteSignals, personalizationBoost, type FavoriteSignals } from "./personalization";
+import { isEmbeddingConfigured } from "./embeddings";
+import { rerankByFavoriteSimilarity } from "./stage2-rerank";
+import { getStoredFavoriteTrendSummary } from "./stage3-summary";
 import { sendReportReadyPush, sendCategoryErrorPush } from "@/lib/notifications/webpush";
 
 interface FetchResult {
@@ -29,9 +34,26 @@ interface FetchResult {
 /** How many videos per platform survive into the list Claude analyses. */
 const ITEMS_PER_PLATFORM = 12;
 
-async function fetchRawDataForMainCategory(category: CategoryRow): Promise<FetchResult> {
+async function fetchRawDataForMainCategory(
+  category: CategoryRow,
+  favoriteSignals: FavoriteSignals
+): Promise<FetchResult> {
+  const boost = personalizationBoost(favoriteSignals);
+
+  // The AI sub categories have no bilibili equivalent — skip it entirely rather than
+  // falling back to bilibili's cross-partition "popular" feed, which would inject
+  // unrelated Chinese-entertainment items into an AI-tooling report.
+  if (category.youtube_only) {
+    const ytItems = await fetchYouTubeTrending(category, favoriteSignals);
+    return {
+      items: rankByVelocity(ytItems, { limitPerPlatform: ITEMS_PER_PLATFORM, boost }),
+      sourceUsed: "youtube",
+      fallbackReason: null,
+    };
+  }
+
   const [ytResult, biliResult] = await Promise.allSettled([
-    fetchYouTubeTrending(category),
+    fetchYouTubeTrending(category, favoriteSignals),
     fetchBilibiliRanking(category),
   ]);
 
@@ -62,7 +84,7 @@ async function fetchRawDataForMainCategory(category: CategoryRow): Promise<Fetch
     }
 
     return {
-      items: rankByVelocity(ytResult.value, { limitPerPlatform: ITEMS_PER_PLATFORM }),
+      items: rankByVelocity(ytResult.value, { limitPerPlatform: ITEMS_PER_PLATFORM, boost }),
       sourceUsed: "youtube",
       fallbackReason: "bilibili_endpoint_failed",
     };
@@ -75,7 +97,7 @@ async function fetchRawDataForMainCategory(category: CategoryRow): Promise<Fetch
       message: ytResult.reason instanceof Error ? ytResult.reason.message : String(ytResult.reason),
     });
     return {
-      items: rankByVelocity(biliResult.value, { limitPerPlatform: ITEMS_PER_PLATFORM }),
+      items: rankByVelocity(biliResult.value, { limitPerPlatform: ITEMS_PER_PLATFORM, boost }),
       sourceUsed: "bilibili",
       fallbackReason: "youtube_api_failed",
     };
@@ -86,6 +108,7 @@ async function fetchRawDataForMainCategory(category: CategoryRow): Promise<Fetch
     // how fast each video is climbing, not by which API happened to return it.
     items: rankByVelocity([...ytResult.value, ...biliResult.value], {
       limitPerPlatform: ITEMS_PER_PLATFORM,
+      boost,
     }),
     sourceUsed: "youtube", // mixed source; source_used records the primary happy-path source
     fallbackReason: null,
@@ -107,11 +130,26 @@ export async function runOneCategory(weeklyRunId: string, category: CategoryRow)
       fallbackReason = null;
       rawItems = [];
     } else {
-      const raw = await fetchRawDataForMainCategory(category);
-      analysis = await analyzeWithClaude(category, raw.items);
+      const favoriteInputs = await getFavoriteSignalsForCategory(category.id);
+      const favoriteSignals = extractFavoriteSignals(favoriteInputs);
+      const raw = await fetchRawDataForMainCategory(category, favoriteSignals);
+
+      // Stage 2 (embedding similarity rerank) only applies to the 5 trend categories,
+      // not the AI sub categories (youtube_only) — see the plan's stage split — and
+      // only once VOYAGE_API_KEY is configured.
+      const items =
+        !category.youtube_only && isEmbeddingConfigured()
+          ? await rerankByFavoriteSimilarity(category, raw.items)
+          : raw.items;
+
+      // Stage 3 (monthly favorite-trend summary) is injected the same way — trend
+      // categories only, no-op until a summary has actually been generated.
+      const favoriteTrendSummary = !category.youtube_only ? await getStoredFavoriteTrendSummary() : null;
+
+      analysis = await analyzeWithClaude(category, items, favoriteTrendSummary);
       sourceUsed = raw.sourceUsed;
       fallbackReason = raw.fallbackReason;
-      rawItems = raw.items;
+      rawItems = items;
     }
 
     await persistReportEntry(entry.id, analysis, sourceUsed, fallbackReason, rawItems);

@@ -8,6 +8,7 @@ const bilibiliVideoSchema = z.object({
   title: z.string(),
   bvid: z.string(),
   pubdate: z.number(),
+  owner: z.object({ name: z.string() }).optional(),
   stat: z.object({
     view: z.number(),
     like: z.number().optional().default(0),
@@ -86,6 +87,7 @@ export async function fetchBilibiliRanking(category: CategoryRow): Promise<RawMe
   return parsed.data.data.list.map((v) => ({
     platform: "bilibili" as const,
     title: v.title,
+    channelTitle: v.owner?.name ?? null,
     url: `https://www.bilibili.com/video/${v.bvid}`,
     viewCount: v.stat.view,
     likeCount: v.stat.like,

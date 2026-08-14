@@ -18,6 +18,11 @@ const envSchema = z.object({
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().min(1),
   VAPID_PRIVATE_KEY: z.string().min(1),
   VAPID_SUBJECT: z.string().min(1),
+  // Stage 2 personalization (embedding-based rerank). Optional: unset until the user
+  // creates a Voyage AI account and issues a key, so its absence must not break the
+  // rest of the app. See embeddings.ts's isEmbeddingConfigured() for the gate.
+  VOYAGE_API_KEY: z.string().min(1).optional(),
+  VOYAGE_MODEL: z.string().min(1).default("voyage-4-lite"),
 });
 
 type Env = z.infer<typeof envSchema>;

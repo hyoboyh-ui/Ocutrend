@@ -68,7 +68,13 @@ export function rankByVelocity(
   {
     now = new Date(),
     limitPerPlatform,
-  }: { now?: Date; limitPerPlatform?: number } = {}
+    boost,
+  }: {
+    now?: Date;
+    limitPerPlatform?: number;
+    /** Extra score added before the final sort/trim — see personalization.ts's personalizationBoost. */
+    boost?: (item: RawMetricItem) => number;
+  } = {}
 ): RankedItem[] {
   const cutoffMs = now.getTime() - MAX_AGE_DAYS * 86_400_000;
 
@@ -103,7 +109,9 @@ export function rankByVelocity(
       .map((item) => ({
         ...item,
         velocityScore:
-          VIEW_WEIGHT * normView(item.viewVelocity) + COMMENT_WEIGHT * normComment(item.commentVelocity),
+          VIEW_WEIGHT * normView(item.viewVelocity) +
+          COMMENT_WEIGHT * normComment(item.commentVelocity) +
+          (boost?.(item) ?? 0),
       }))
       .sort((a, b) => b.velocityScore - a.velocityScore);
 

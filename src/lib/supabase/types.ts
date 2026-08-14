@@ -6,6 +6,13 @@ export type GroupType = "main" | "sub" | "custom";
 export type SourceType = "youtube_bilibili" | "web_search_only";
 export type CategoryStatus = "active" | "paused";
 
+/** One search.list query for a category with multiple JP/EN queries (see search_queries). */
+export interface YoutubeSearchQuery {
+  q: string;
+  relevanceLanguage: string;
+  regionCode: string;
+}
+
 export interface CategoryRow {
   id: string;
   slug: string;
@@ -15,6 +22,10 @@ export interface CategoryRow {
   search_query_hint: string;
   source_type: SourceType;
   bilibili_partition: number | null;
+  /** When set, fetchYouTubeTrending issues one search.list call per entry instead of the single search_query_hint query. */
+  search_queries: YoutubeSearchQuery[] | null;
+  /** When true, the pipeline skips bilibili entirely rather than falling back to its cross-partition "popular" feed. */
+  youtube_only: boolean;
   status: CategoryStatus;
   sort_order: number;
   consecutive_failures: number;
@@ -42,6 +53,7 @@ export type SourceUsed = "youtube" | "bilibili" | "claude_web_search";
 export interface PickupItem {
   ref: string; // stable id, generated at write time — favorites reference this, not array index
   title: string;
+  channelTitle?: string | null;
   platform: "youtube" | "bilibili" | "web";
   url: string | null;
   whyTrending: string;

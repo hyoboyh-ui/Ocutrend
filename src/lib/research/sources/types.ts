@@ -9,3 +9,4 @@ export interface RawSourceData {
 
 export class BilibiliEndpointError extends Error {}
 export class YouTubeApiError extends Error {}
+export class VoyageApiError extends Error {}
