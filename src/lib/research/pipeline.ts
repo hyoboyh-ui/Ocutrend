@@ -52,6 +52,17 @@ async function fetchRawDataForMainCategory(
     };
   }
 
+  // The 5 main trend categories are bilibili-first — skip YouTube's search.list quota
+  // and the extra Claude input tokens for a second platform's items entirely.
+  if (category.bilibili_only) {
+    const biliItems = await fetchBilibiliRanking(category);
+    return {
+      items: rankByVelocity(biliItems, { limitPerPlatform: ITEMS_PER_PLATFORM, boost }),
+      sourceUsed: "bilibili",
+      fallbackReason: null,
+    };
+  }
+
   const [ytResult, biliResult] = await Promise.allSettled([
     fetchYouTubeTrending(category, favoriteSignals),
     fetchBilibiliRanking(category),

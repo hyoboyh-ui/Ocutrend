@@ -26,6 +26,8 @@ export interface CategoryRow {
   search_queries: YoutubeSearchQuery[] | null;
   /** When true, the pipeline skips bilibili entirely rather than falling back to its cross-partition "popular" feed. */
   youtube_only: boolean;
+  /** When true, the pipeline skips YouTube entirely and uses bilibili alone. */
+  bilibili_only: boolean;
   status: CategoryStatus;
   sort_order: number;
   consecutive_failures: number;
