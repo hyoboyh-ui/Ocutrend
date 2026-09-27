@@ -3,14 +3,9 @@ import { Plus } from "lucide-react";
 import { listAllCategories } from "@/lib/research/queries";
 import { CategoryListItem } from "@/components/categories/CategoryListItem";
 import type { GroupType } from "@/lib/supabase/types";
+import { GROUP_LABELS as groupLabels } from "@/lib/category-labels";
 
 export const dynamic = "force-dynamic";
-
-const groupLabels: Record<GroupType, string> = {
-  main: "メインカテゴリ",
-  sub: "制作お役立ち",
-  custom: "カスタム",
-};
 
 export default async function CategoriesPage() {
   const categories = await listAllCategories();

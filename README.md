@@ -37,6 +37,7 @@ npm run dev
 
 - 週次リサーチは Vercel Cron が毎日 22:00 UTC(=JST朝7時前後)に `/api/cron/weekly-research` を叩き、`app_settings.research_schedule` の設定に基づいて実際に実行するかを判定する(既定: 毎週月曜)。
 - 各カテゴリは「カテゴリ管理」画面から個別に「今すぐリサーチ」で即時実行できる。
+- AI(Codex)向けの読み取り専用API `GET /api/context` がある。合言葉 `OCUTREND_CONTEXT_TOKEN` で認証し、仕様は [docs/context-api.md](docs/context-api.md)。
 - バグ修正や機能追加は、このリポジトリで作業しているClaude Codeセッションに「pushして欲しい」と伝えるだけで、ビルドチェック→`main`へのpush→Vercel自動デプロイまで完了する。
 
 ## 開発コマンド

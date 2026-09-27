@@ -5,7 +5,9 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
 
 export const config = {
   matcher: [
-    "/((?!api/cron|api/auth|login|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons|illustrations).*)",
+    // `api/context`（AI 向けの読み取り専用 API）はクッキーを持たないので除外し、
+    // 代わりにルート側で OCUTREND_CONTEXT_TOKEN を検証する。
+    "/((?!api/cron|api/auth|api/context|login|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons|illustrations).*)",
   ],
 };
 

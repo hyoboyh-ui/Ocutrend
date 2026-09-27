@@ -3,14 +3,9 @@ import { Download } from "lucide-react";
 import { getWeeklyRunById, getEntriesWithFavoritesForRun } from "@/lib/research/queries";
 import { CategoryCard } from "@/components/dashboard/CategoryCard";
 import type { GroupType } from "@/lib/supabase/types";
+import { GROUP_LABELS as groupLabels } from "@/lib/category-labels";
 
 export const dynamic = "force-dynamic";
-
-const groupLabels: Record<GroupType, string> = {
-  main: "メインカテゴリ",
-  sub: "制作お役立ち",
-  custom: "カスタム",
-};
 
 export default async function ArchiveDetailPage({
   params,

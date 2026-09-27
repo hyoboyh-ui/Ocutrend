@@ -4,14 +4,9 @@ import { HeroSection } from "@/components/dashboard/HeroSection";
 import { CategoryCard } from "@/components/dashboard/CategoryCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { GroupType } from "@/lib/supabase/types";
+import { GROUP_LABELS as groupLabels } from "@/lib/category-labels";
 
 export const dynamic = "force-dynamic";
-
-const groupLabels: Record<GroupType, string> = {
-  main: "メインカテゴリ",
-  sub: "制作お役立ち",
-  custom: "カスタム",
-};
 
 export default async function DashboardPage() {
   const run = await getLatestWeeklyRun();

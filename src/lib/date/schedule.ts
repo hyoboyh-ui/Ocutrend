@@ -1,7 +1,7 @@
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { startOfWeek, startOfMonth, format } from "date-fns";
 
-const JST = "Asia/Tokyo";
+export const JST = "Asia/Tokyo";
 
 /** Returns this week's Monday (JST) as a YYYY-MM-DD string — the `weekly_runs.week_start` key. */
 export function getCurrentWeekStartJST(now: Date = new Date()): string {
